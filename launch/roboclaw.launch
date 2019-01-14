@@ -13,6 +13,12 @@
         <param name="deadman_secs" type="int" value="3"/>
         <param name="speed_cmd_topic" type="str" value="roboclaw/speed_command"/>
         <param name="stats_topic" type="str" value="roboclaw/stats"/>        
+
+        <param name="max_abs_linear_speed" value="1.5"/>
+        <param name="max_abs_angular_speed" value="3"/>
+        <!-- 1957 ticks/rev ; 0.2 cm diam ; 0.6283186 m/rev -->
+        <param name="ticks_per_meter" value="1900"/>
+        <param name="base_width" value="0.4"/>
     </node>
 
 </launch>

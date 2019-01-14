@@ -3,6 +3,7 @@
 from __future__ import print_function
 import traceback
 
+from math import pi, cos, sin, copysign
 import rospy
 import diagnostic_updater
 import diagnostic_msgs
@@ -19,6 +20,7 @@ DEFAULT_ADDRESS = 0x80
 DEFAULT_DEADMAN_SEC = 3
 DEFAULT_STATS_TOPIC = "~stats"
 DEFAULT_SPEED_CMD_TOPIC = "~speed_command"
+
 
 
 class RoboclawNode:
@@ -183,6 +185,53 @@ class RoboclawNode:
                 "RoboclawControl SpeedAccelDistanceM1M2({}) failed".format(command.forward_pct)
             )
 
+    def cmd_vel_callback(self, twist):
+        last_set_speed_time = rospy.get_rostime()
+
+        linear_x = twist.linear.x
+        angular_z = twist.angular.z
+        if abs(linear_x) > MAX_ABS_LINEAR_SPEED:
+            linear_x = copysign(MAX_ABS_LINEAR_SPEED, linear_x)
+        if abs(angular_z) > MAX_ABS_ANGULAR_SPEED:
+            angular_z = copysign(MAX_ABS_ANGULAR_SPEED, angular_z)
+
+        vr = linear_x - angular_z * BASE_WIDTH / 2.0  # m/s
+        vl = linear_x + angular_z * BASE_WIDTH / 2.0
+
+        vr_ticks = int(vr * TICKS_PER_METER)  # ticks/s
+        vl_ticks = int(vl * TICKS_PER_METER)
+
+        # v_wheels= Wheels_speeds()
+        # v_wheels.wheel1=vl
+        # v_wheels.wheel2=vr
+        # wheels_speeds_pub.publish(v_wheels)
+
+
+        rospy.logdebug("vr_ticks:%d vl_ticks: %d", vr_ticks, vl_ticks)
+
+        self._last_cmd_time = rospy.get_rostime()
+
+        success = self._rbc_ctl.driveM1M2qpps(vr_ticks, vl_ticks, 3)
+        if not success:
+            rospy.logerr(
+                "RoboclawControl SpeedAccelDistanceM1M2 failed"
+            )
+
+        # try:
+        #     #Replaced to implement watchdog
+        #     #roboclaw.SpeedM1M2(self.address, vr_ticks, vl_ticks)
+        #     #Replaced to implement acc
+        #     #roboclaw.SpeedDistanceM1M2(self.address, vr_ticks, int(abs(vr_ticks*0.04)), vl_ticks, int(abs(vl_ticks*0.04)), 1)
+        #     #rospy.logdebug(" Acc ticks %d" % (int(self.ACC_LIM * self.TICKS_PER_METER)))
+        #     roboclaw.SpeedAccelDistanceM1(self.address, int(self.ACC_LIM * self.TICKS_PER_METER),vr_ticks, int(abs(vr_ticks*0.04)),1)
+        #     roboclaw.SpeedAccelDistanceM2(self.address, int(self.ACC_LIM * self.TICKS_PER_METER),vl_ticks, int(abs(vl_ticks*0.04)),1)
+        #     #Mixed command doesn't work
+        #     #roboclaw.SpeedAccelDistanceM1M2(self.address, int(self.ACC_LIM * self.TICKS_PER_METER),vr_ticks, int(abs(vr_ticks*0.04)), vl_ticks, int(abs(vl_ticks*0.04)), 1)
+
+        # except OSError as e:
+        #     rospy.logwarn("SpeedM1M2 OSError: %d", e.errno)
+        #     rospy.logdebug(e)
+
     def shutdown_node(self):
         """Performs Node shutdown tasks
         """
@@ -203,6 +252,10 @@ if __name__ == "__main__":
     loop_hz = int(rospy.get_param("~loop_hz", DEFAULT_LOOP_HZ))
     deadman_secs = int(rospy.get_param("~deadman_secs", DEFAULT_DEADMAN_SEC))
     test_mode = bool(rospy.get_param("~test_mode", False))
+    MAX_ABS_LINEAR_SPEED = float(rospy.get_param("~max_abs_linear_speed", "1.0"))
+    MAX_ABS_ANGULAR_SPEED = float(rospy.get_param("~max_abs_angular_speed", "1.0"))
+    BASE_WIDTH = float(rospy.get_param("~base_width", "0.315"))
+    TICKS_PER_METER = float(rospy.get_param("~ticks_per_meter", "4342.2"))
 
     rospy.logdebug("node_name: {}".format(node_name))
     rospy.logdebug("dev_name: {}".format(dev_name))
@@ -211,6 +264,11 @@ if __name__ == "__main__":
     rospy.logdebug("loop_hz: {}".format(loop_hz))
     rospy.logdebug("deadman_secs: {}".format(deadman_secs))
     rospy.logdebug("test_mode: {}".format(test_mode))
+
+    rospy.logdebug("max_abs_linear_speed %f", MAX_ABS_LINEAR_SPEED)
+    rospy.logdebug("max_abs_angular_speed %f", MAX_ABS_ANGULAR_SPEED)
+    rospy.logdebug("base_width %f", BASE_WIDTH)
+    rospy.logdebug("ticks_per_meter %f", TICKS_PER_METER)
 
     node = RoboclawNode(node_name)
     rospy.on_shutdown(node.shutdown_node)
