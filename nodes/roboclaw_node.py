@@ -10,6 +10,7 @@ import diagnostic_msgs
 
 from roboclaw_driver.msg import Stats, SpeedCommand
 from roboclaw_driver import RoboclawControl, Roboclaw, RoboclawStub
+from geometry_msgs.msg import Quaternion, Twist
 
 
 DEFAULT_DEV_NAME = "/dev/ttyACM0"
@@ -51,11 +52,13 @@ class RoboclawNode:
         self._diag_updater.add("Read Diagnostics", self._publish_diagnostics)
 
         # Set up the SpeedCommand Subscriber
-        rospy.Subscriber(
-            rospy.get_param("~speed_cmd_topic", DEFAULT_SPEED_CMD_TOPIC),
-            SpeedCommand,
-            self._speed_cmd_callback
-        )
+        # rospy.Subscriber(
+        #     rospy.get_param("~speed_cmd_topic", DEFAULT_SPEED_CMD_TOPIC),
+        #     SpeedCommand,
+        #     self._speed_cmd_callback
+        # )
+
+        rospy.Subscriber("cmd_vel", Twist, self.cmd_vel_callback, queue_size=1)
 
         # For logdebug
         self.prev_m1_val = 0
